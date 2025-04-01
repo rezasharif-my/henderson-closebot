@@ -1,9 +1,15 @@
-from langchain.chat_models import ChatOpenAI
-from app.db import get_recent_chat, save_user, get_user_by_thread_id, get_latest_summary
+from langchain_openai import ChatOpenAI
+from utils import get_environment_ready
+from db import get_recent_chat, save_chat_summary, save_user, get_user_by_thread_id, get_latest_summary
 from pydantic import BaseModel, Field
 from typing import Literal , Optional
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+from langchain_core.messages import RemoveMessage
 import re
+
+from dataclasses import replace
+get_environment_ready()
+
 llm = ChatOpenAI(model="gpt-4o", temperature=0)
 
 
@@ -38,9 +44,9 @@ User message: "{message}"
 """
 
 def intent_classifier_node(state):
-    user_msg = state.get("user_message")
+    user_msg = state.messages[-1].content 
     if not user_msg:
-        return {**state, "intent": "unclear"}
+        return replace(state, intent=result.intent)
 
     prompt = INTENT_PROMPT.format(message=user_msg)
     system_msg = SystemMessage(content=prompt)
@@ -48,34 +54,23 @@ def intent_classifier_node(state):
     try:
         structured_llm = llm.with_structured_output(DetectedIntent)
         result = structured_llm.invoke([system_msg])
-        return {
-            **state,
-            "intent": result.intent
-        }
+        return replace(state, intent=result.intent)
     except Exception as e:
         print(f"[Intent Classifier Error] {e}")
-        return {
-            **state,
-            "intent": "unclear"
-        }
+        return replace(state, intent=result.intent)
 
 # =============================================================================
 # Define the memory loader node
 # =============================================================================
 def memory_loader_node(state):
     """Loads user's profile and last summary into the graph state."""
-    thread_id = state.get("thread_id")
+    thread_id = state.thread_id or None
     if not thread_id:
         return state
 
     user_info = get_user_by_thread_id(thread_id)
     summary = get_latest_summary(thread_id)
-
-    return {
-        **state,
-        "summary": summary,
-        "user_profile": user_info,  # Optional: if you add to your state later
-    }
+    return replace(state, summary=summary, user_profile=user_info)
 
 # =============================================================================
 # Define the clarification node
@@ -94,7 +89,7 @@ Respond with ONLY the follow-up question.
 '''
 
 def clarification_node(state: dict) -> dict:
-    user_msg = state.get("user_message")
+    user_msg = state.messages[-1].content 
     if not user_msg:
         return state
 
@@ -104,18 +99,11 @@ def clarification_node(state: dict) -> dict:
     try:
         clarifier_llm = llm.with_structured_output(ClarificationOutput)
         result = clarifier_llm.invoke([system_msg])
-        return {
-            **state,
-            "clarification_question": result.clarification_question,
-            "status": "NEED_USER_CLARIFICATION"
-        }
+        return replace(state, clarification_question=result.clarification_question, status="NEED_USER_CLARIFICATION")
     except Exception as e:
         print(f"[Clarification Error] {e}")
-        return {
-            **state,
-            "clarification_question": "Can you clarify what you mean?",
-            "status": "NEED_USER_CLARIFICATION"
-        }
+        return replace(state, clarification_question="Can you clarify what you mean?", status="NEED_USER_CLARIFICATION")
+
         
 # =============================================================================
 # Define the Jack reply generator node
@@ -144,9 +132,9 @@ Make sure to personalize the message where relevant, and ask a follow-up if it m
 """
 # Main reply generator
 def jack_reply_generator_node(state):
-    messages = state.get("messages", [])
-    user_summary = state.get("summary")
-    user_intent = state.get("intent")
+    messages = state.messages
+    user_summary = state.summary or ""
+    user_intent = state.intent or None
 
     # Compose system context with optional summary
     system_prompt = JACK_SYSTEM_PROMPT
@@ -159,20 +147,12 @@ def jack_reply_generator_node(state):
             SystemMessage(content=system_prompt),
             *messages
         ])
+        return replace(state, answer=response.reply, status="ANSWER_GENERATED")
 
-        return {
-            **state,
-            "answer": response.reply,
-            "status": "ANSWER_GENERATED"
-        }
 
     except Exception as e:
         print("[Jack Reply Error]", e)
-        return {
-            **state,
-            "answer": "Sorry champ, something went wrong. Let’s try that again.",
-            "status": "ANSWER_GENERATED"
-        }
+        return replace(state, answer= "Sorry champ, something went wrong. Let’s try that again.", status="ANSWER_GENERATED")
 
 
 # =============================================================================
@@ -184,7 +164,6 @@ def jack_reply_generator_node(state):
 # - Replace with LangChain RAG chain using document loader
 # - Add fuzzy matching or regular expression support
 
-from langchain_core.runnables import RunnableLambda
 
 # You could later move this into a separate file like faq_data.py
 FAQ_RESPONSES = {
@@ -196,14 +175,10 @@ FAQ_RESPONSES = {
 }
 
 def faq_matcher_node(state):
-    user_msg = state.get("user_message", "").lower()
+    user_msg = state.messages[-1].content 
     for question, answer in FAQ_RESPONSES.items():
         if question in user_msg:
-            return {
-                **state,
-                "answer": answer,
-                "status": "ANSWER_GENERATED"
-            }
+            return replace(state, answer=answer, status="ANSWER_GENERATED")
     return state  # No match found → continue flow
 
 
@@ -231,8 +206,8 @@ User: "{message}"
 
 # --- 4. Main Node Function ---
 def lead_capture_node(state):
-    user_msg = state.get("user_message", "")
-    thread_id = state.get("thread_id")
+    user_msg = state.messages[-1].content 
+    thread_id = state.thread_id or None
 
     prompt = LEAD_CAPTURE_PROMPT.format(message=user_msg)
     system_msg = SystemMessage(content=prompt)
@@ -245,29 +220,18 @@ def lead_capture_node(state):
 
         # Optionally update state or ask again
         if email or phone:
-            from app.db import save_user  # call inside to avoid circular import
+            from app.db import save_user 
             save_user(thread_id, email=email, phone=phone)
 
-            confirmation = f"Awesome! I’ve got your info. I’ll email you at {email} and text you at {phone}. Let’s make it happen."
-            return {
-                **state,
-                "answer": confirmation,
-                "status": "ANSWER_GENERATED"
-            }
+            confirmation = f"Awesome! I’ve got your info. I’ll contact you with the info you shared. Let’s make it happen."
+            return replace(state, answer=confirmation, status="ANSWER_GENERATED")
         else:
-            return {
-                **state,
-                "answer": "Mind sharing your email or number so we can follow up properly?",
-                "status": "ANSWER_GENERATED"
-            }
+            return replace(state, answer="Mind sharing your email or number so we can follow up properly?", status="ANSWER_GENERATED")
+
 
     except Exception as e:
         print(f"[Lead Capture Error] {e}")
-        return {
-            **state,
-            "answer": "Hmm, I didn’t catch your contact info. Mind sending it again?",
-            "status": "ANSWER_GENERATED"
-        }
+        return replace(state, answer= "Hmm, I didn’t catch your contact info. Mind sending it again?", status="ANSWER_GENERATED")
         
 
 
@@ -307,7 +271,7 @@ import random
 # --- 3. Main motivator node ---
 def motivator_node(state):
     llm = ChatOpenAI(model="gpt-4o", temperature=0.5)
-    user_msg = state.get("user_message", "")
+    user_msg = state.messages[-1].content 
     if not user_msg:
         return state
 
@@ -320,14 +284,78 @@ def motivator_node(state):
 
         if result.level == "low":
             quote = random.choice(MOTIVATIONAL_QUOTES)
-            return {
-                **state,
-                "answer": quote,
-                "status": "ANSWER_GENERATED"
-            }
+            current_answer = state.answer or ""
+            new_answer = current_answer.strip() + "\n\n" + quote
+            return replace(state, answer=new_answer, status="ANSWER_GENERATED")
         else:
-            return state  # skip if high/uncertain
+            return state
 
     except Exception as e:
         print("[Motivator Error]", e)
         return state
+
+
+# =============================================================================
+# Define the main summarizer node
+# =============================================================================
+# --- Main summarizer node ---
+def summary_node(state):
+    model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    thread_id = state.thread_id or None
+    messages = state.messages
+
+    # Don't summarize unless there's context to work with
+    if len(messages) <= 2:
+        return state
+
+    # Pull latest summary from DB
+    existing_summary = get_latest_summary(thread_id) or ""
+
+    # Summarization prompt
+    if existing_summary:
+        summary_prompt = (
+            f"This is a summary of the user's conversation so far: {existing_summary}\n\n"
+            "Based on the following chat messages, expand and refine this summary. Focus only on property goals, investment interests, or buyer concerns relevant to Henderson Advocacy. Keep it in ONE concise paragraph in natural language."
+        )
+    else:
+        summary_prompt = (
+            "Summarize the following chat messages in ONE paragraph."
+            " Focus only on property goals, investment interests, or buyer concerns relevant to Henderson Advocacy. Do not mention chit-chat or unrelated info."
+        )
+
+    # Call LLM
+    full_prompt = messages + [HumanMessage(content=summary_prompt)]
+    response = model.invoke(full_prompt)
+    new_summary = response.content.strip()
+
+    # Save to DB
+    if thread_id:
+        save_chat_summary(thread_id, new_summary)
+
+    # Trim memory to last 2 messages
+    clear_old = [RemoveMessage(id=m.id) for m in messages[:-2]]
+    return replace(state, summary=new_summary, messages=clear_old)
+
+
+# =============================================================================
+# Define the user save node
+# =============================================================================
+def user_save_node(state):
+    thread_id = state.thread_id
+    user_profile = state.user_profile or {}
+
+    name = user_profile.get("name")
+    platform = user_profile.get("platform")
+    email = user_profile.get("email")
+    phone = user_profile.get("phone")
+
+    if thread_id:
+        save_user(
+            thread_id=thread_id,
+            name=name,
+            platform=platform,
+            email=email,
+            phone=phone,
+        )
+
+    return state  # State unchanged

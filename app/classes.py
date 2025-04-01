@@ -2,12 +2,6 @@
 from dataclasses import dataclass
 from typing_extensions import TypedDict
 from typing import Annotated, Optional, Any, Literal
-
-
-
-
-
-
 from datetime import datetime
 
 @dataclass(kw_only=True)
@@ -35,9 +29,6 @@ class Configurable(TypedDict, total=False):
     """Stores configurable settings for a chatbot session."""
     thread_id: Optional[str]
     """Unique thread ID for the conversation."""
-
-    user_data: Optional[dict]
-    """User-specific configuration data."""
 
 
 class Config(TypedDict, total=False):

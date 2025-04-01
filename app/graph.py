@@ -1,15 +1,11 @@
-from langchain_core.runnables import RunnableConfig
-from langgraph.graph import END, StateGraph , START , COMMAND
-from typing import Annotated, Optional, Literal, List, Union
+from langgraph.graph import END, StateGraph , START 
+from typing import Annotated, Optional, Literal, List, Union , Dict
 from langchain_core.runnables import RunnableLambda
 from dataclasses import dataclass, field
-from langgraph.prebuilt import ToolExecutor, ToolInvocation
-from langchain.chat_models import ChatOpenAI
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph.message import AnyMessage, add_messages
-from app.classes import Config
-from app.handlers import clarification_node, faq_matcher_node, intent_classifier_node, jack_reply_generator_node, lead_capture_node, memory_loader_node
-from app.prompts import jack_system_prompt
+from classes import Config
+from handlers import clarification_node, faq_matcher_node, intent_classifier_node, jack_reply_generator_node, lead_capture_node, memory_loader_node, motivator_node, summary_node, user_save_node
 import sqlite3
 import os
 
@@ -23,6 +19,9 @@ memory = SqliteSaver(conn)
 @dataclass(kw_only=True)
 class State:
     """Main chatbot graph state."""
+    
+    thread_id: Optional[str] = "TEST"
+    """Unique thread ID for the conversation."""
 
     messages: Annotated[List[AnyMessage], add_messages]
     """The messages in the conversation."""
@@ -32,6 +31,9 @@ class State:
 
     intent: Optional[str] = None
     """Detected intent of the user query."""
+    
+    user_profile: Optional[Dict[str, str]] = None
+    """Basic profile info like name, email, phone, platform, etc."""
 
     clarification_question: Optional[str] = None
     """Question for clarification."""
@@ -71,17 +73,65 @@ faq_matcher = RunnableLambda(faq_matcher_node)
 # Define the node to handle the lead capture
 lead_capture = RunnableLambda(lead_capture_node)
 
+# Define the node to handle the motivator
+motivator = RunnableLambda(motivator_node)
+
+# Define the node to generate the summary
+summary = RunnableLambda(summary_node)
+
+# Define the node to save the user data
+user_save = RunnableLambda(user_save_node)
+
+# Define the function to route the user query based on the detected intent
+def route_intent(state: State) -> str:
+    """Route the user query based on the detected intent."""
+    if state.intent == "faq":
+        return "faq_matcher"
+    elif state.intent == "lead_capture":
+        return "lead_capture_node"
+    elif state.intent == "unclear":
+        return "clarification_node"
+    else:
+        return "jack_reply_generator"
+
+def route_faq(state: State) -> str:
+    """Route the user query based on the detected intent."""
+    answer = state.answer
+    if answer:
+        return "summary_node"
+    else:
+        return "jack_reply_generator"
+
 # Define Graph
 workflow = StateGraph(State, config_schema=Config)
 
 # Nodes
-workflow.add_node("intent_classifier", intent_classifier)
 workflow.add_node("memory_loader", memory_loader)
+workflow.add_node("intent_classifier", intent_classifier)
 workflow.add_node("clarification_node", clarification)
 workflow.add_node("jack_reply_generator", jack_reply_generator)
 workflow.add_node("faq_matcher", faq_matcher)
 workflow.add_node("lead_capture_node", lead_capture)
-workflow.add_node("motivator_node", single_result_generator)
-workflow.add_node("summary_node", list_result_generator)
-workflow.add_node("user_save_node", list_result_generator)
-workflow.add_node("end_convo_node", list_result_generator)
+workflow.add_node("motivator_node", motivator)
+workflow.add_node("summary_node", summary)
+workflow.add_node("user_save_node", user_save)
+
+# Edges
+workflow.add_edge(START, "memory_loader")
+workflow.add_edge("memory_loader", "intent_classifier")
+workflow.add_conditional_edges("intent_classifier", route_intent)  
+workflow.add_conditional_edges("faq_matcher", route_faq)  
+workflow.add_edge("lead_capture_node", "summary_node")  
+workflow.add_edge("jack_reply_generator", "motivator_node")  
+workflow.add_edge("motivator_node", "summary_node")  
+workflow.add_edge("summary_node", "user_save_node")  
+workflow.add_edge("user_save_node", END)  
+
+maingraph = workflow.compile(checkpointer=memory)
+
+
+
+config: Config = {"configurable": {}}
+config["configurable"]["thread_id"] = "TEST"
+dd = maingraph.invoke({"messages": ["Hello"]}, config)
+print(dd)

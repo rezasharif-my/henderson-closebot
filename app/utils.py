@@ -1,4 +1,5 @@
 import os, getpass
+from typing import List
 import uuid
 from dotenv import load_dotenv
 load_dotenv()
@@ -16,7 +17,7 @@ def get_environment_ready():
     _set_if_undefined("LANGCHAIN_PROJECT")
     os.environ["LANGCHAIN_TRACING_V2"] = "true"
     
-def reset_state_fields(state: State, fields_to_reset: List[str]) -> State:
+def reset_state_fields(state, fields_to_reset: List[str]):
     """Resets only specific fields of the chatbot state while keeping the rest."""
     for field in fields_to_reset:
         if hasattr(state, field):  # Check if the attribute exists

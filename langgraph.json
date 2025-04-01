@@ -1,12 +1,13 @@
 {
     "dockerfile_lines": [],
     "graphs": {
-        "old sql_graph": "./src/graphs/sql_generator/old_sql_graph.py:oldsqlgraph",
-        "sql generator": "./src/graphs/sql_generator/sql_graph.py:sqlgraph",
-        "main": "./src/graphs/main/main_graph.py:maingraph"
+        "main": "./app/graph.py:maingraph"
     },
     "env": ".env",
-    "python_version": "3.11",
-    "dependencies": ["."]
+    "python_version": "3.12",
+    "dependencies": ["."],
+    "extras": {
+        "sqlite": true
+    }
 
 }

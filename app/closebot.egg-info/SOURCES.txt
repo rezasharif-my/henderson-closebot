@@ -1,0 +1,7 @@
+README
+setup.py
+app/closebot.egg-info/PKG-INFO
+app/closebot.egg-info/SOURCES.txt
+app/closebot.egg-info/dependency_links.txt
+app/closebot.egg-info/requires.txt
+app/closebot.egg-info/top_level.txt
