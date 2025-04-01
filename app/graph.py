@@ -8,7 +8,7 @@ from langchain.chat_models import ChatOpenAI
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph.message import AnyMessage, add_messages
 from app.classes import Config
-from app.handlers import clarification_node, intent_classifier_node, jack_reply_generator_node, memory_loader_node
+from app.handlers import clarification_node, faq_matcher_node, intent_classifier_node, jack_reply_generator_node, lead_capture_node, memory_loader_node
 from app.prompts import jack_system_prompt
 import sqlite3
 import os
@@ -62,11 +62,14 @@ memory_loader = RunnableLambda(memory_loader_node)
 # Define the node to handle the clarification question
 clarification = RunnableLambda(clarification_node)
 
-# Define the node to handle the general response
+# Define the node to handle the general response (Jack Henderson's reply)
 jack_reply_generator = RunnableLambda(jack_reply_generator_node)
 
+# Define the node to handle the FAQ matching
+faq_matcher = RunnableLambda(faq_matcher_node)
 
-
+# Define the node to handle the lead capture
+lead_capture = RunnableLambda(lead_capture_node)
 
 # Define Graph
 workflow = StateGraph(State, config_schema=Config)
@@ -75,9 +78,9 @@ workflow = StateGraph(State, config_schema=Config)
 workflow.add_node("intent_classifier", intent_classifier)
 workflow.add_node("memory_loader", memory_loader)
 workflow.add_node("clarification_node", clarification)
-workflow.add_node("jack_reply_generator", handle_general_response)
-workflow.add_node("faq_matcher", handle_irrelevant_response)
-workflow.add_node("lead_capture_node", final_answer_router)
+workflow.add_node("jack_reply_generator", jack_reply_generator)
+workflow.add_node("faq_matcher", faq_matcher)
+workflow.add_node("lead_capture_node", lead_capture)
 workflow.add_node("motivator_node", single_result_generator)
 workflow.add_node("summary_node", list_result_generator)
 workflow.add_node("user_save_node", list_result_generator)
