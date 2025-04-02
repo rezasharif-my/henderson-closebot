@@ -119,8 +119,24 @@ workflow.add_node("user_save_node", user_save)
 # Edges
 workflow.add_edge(START, "memory_loader")
 workflow.add_edge("memory_loader", "intent_classifier")
-workflow.add_conditional_edges("intent_classifier", route_intent)  
-workflow.add_conditional_edges("faq_matcher", route_faq)  
+workflow.add_conditional_edges(
+    "intent_classifier", 
+    route_intent, 
+    {
+        "faq_matcher": "faq_matcher",
+        "lead_capture_node": "lead_capture_node",
+        "clarification_node": "clarification_node",
+        "jack_reply_generator": "jack_reply_generator"
+    }
+)
+workflow.add_conditional_edges(
+    "faq_matcher", 
+    route_faq, 
+    {
+        "summary_node": "summary_node",
+        "jack_reply_generator": "jack_reply_generator"
+    }
+)  
 workflow.add_edge("lead_capture_node", "summary_node")  
 workflow.add_edge("jack_reply_generator", "motivator_node")  
 workflow.add_edge("motivator_node", "summary_node")  
@@ -129,9 +145,3 @@ workflow.add_edge("user_save_node", END)
 
 maingraph = workflow.compile(checkpointer=memory)
 
-
-
-config: Config = {"configurable": {}}
-config["configurable"]["thread_id"] = "TEST"
-dd = maingraph.invoke({"messages": ["Hello"]}, config)
-print(dd)

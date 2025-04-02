@@ -1,30 +1,83 @@
-from fastapi import FastAPI, Request
-from app.graph import run_langgraph_flow
-from app.utils import extract_user_message, send_meta_reply
+from fastapi import FastAPI, Request ,Form
 from dotenv import load_dotenv
+from pydantic import BaseModel
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
+import uuid
 import os
+
+from core import generate_answer
 
 load_dotenv()
 
 app = FastAPI()
+templates = Jinja2Templates(directory="templates")
 
-@app.get("/webhook")
-def verify(mode: str = '', challenge: str = '', verify_token: str = ''):
-    if verify_token == os.getenv("VERIFY_TOKEN"):
-        return int(challenge)
-    return {"error": "Verification failed"}
 
-@app.post("/webhook")
-async def webhook_listener(request: Request):
-    data = await request.json()
-    user_msg, sender_id, platform = extract_user_message(data)
+# Enable sessions
+app.add_middleware(SessionMiddleware, secret_key="super-secret-reza-key")
 
-    if user_msg:
-        reply = await run_langgraph_flow(user_msg, sender_id)
-        await send_meta_reply(sender_id, reply, platform)
+# =========================================
+# Pydantic model ( API input format)
+# =========================================
+class MessengerInput(BaseModel):
+    sender: dict
+    recipient: dict
+    message: dict
+    platform: str = "web" # e.g. "instagram", "facebook", "web"
 
-    return {"status": "ok"}
+# =========================================
+# UI Route – GET (Initialize session)
+# =========================================
+@app.get("/", response_class=HTMLResponse)
+async def chat_ui(request: Request):
+    if "thread_id" not in request.session:
+        request.session["thread_id"] = f"web_{str(uuid.uuid4())[:8]}"
+    return templates.TemplateResponse("chat.html", {"request": request, "chat": []})
 
+# =========================================
+# UI Route – POST (Handle chat input)
+# =========================================
+@app.post("/", response_class=HTMLResponse)
+async def chat_post(request: Request, message: str = Form(...)):
+    thread_id = request.session.get("thread_id")
+    result = generate_answer(message, thread_id=thread_id, platform="web")
+
+
+
+    return templates.TemplateResponse("chat.html", {
+        "request": request,
+        "chat": [
+            {"from": "user", "msg": message},
+            {"from": "jack", "msg": result["answer"]}
+        ]
+    })
+
+
+# =========================================
+# API Endpoint – for programmatic testing
+# =========================================
+# @app.post("/chat")
+# async def handle_chat_api(payload: MessengerInput):
+#     thread_id = f"{payload.platform}_{payload.sender['id']}"
+
+#     initial_state = State(
+#         messages=[{"type": "human", "content": payload.message["text"]}],
+#         thread_id=thread_id,
+#         user_profile={"platform": payload.platform}
+#     )
+
+#     try:
+#         result = graph.invoke(initial_state)
+#         return {
+#             "reply": result.answer,
+#             "status": result.status,
+#             "summary": result.summary,
+#             "user_profile": result.user_profile
+#         }
+#     except Exception as e:
+#         return {"error": str(e)}
 
 if __name__ == "__main__":
     import uvicorn

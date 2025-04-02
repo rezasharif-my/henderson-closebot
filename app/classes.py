@@ -27,8 +27,9 @@ class UserData:
     
 class Configurable(TypedDict, total=False):
     """Stores configurable settings for a chatbot session."""
-    thread_id: Optional[str]
+    thread_id: Optional[str] = None
     """Unique thread ID for the conversation."""
+    platform: Optional[str] = None
 
 
 class Config(TypedDict, total=False):
