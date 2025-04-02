@@ -4,7 +4,9 @@ from langchain_core.runnables import RunnableLambda
 from dataclasses import dataclass, field
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph.message import AnyMessage, add_messages
+from langgraph.types import interrupt , Command
 from classes import Config
+from dataclasses import replace
 from handlers import clarification_node, faq_matcher_node, intent_classifier_node, jack_reply_generator_node, lead_capture_node, memory_loader_node, motivator_node, summary_node, user_save_node
 import sqlite3
 import os
@@ -58,11 +60,18 @@ __all__ = ["State"]
 #  Define the node to detect the intent of the user query
 intent_classifier = RunnableLambda(intent_classifier_node)
 
-# Define the node to load the memory from the database
+# Define the node to load the memory from the database and add related data to the state
 memory_loader = RunnableLambda(memory_loader_node)
 
 # Define the node to handle the clarification question
 clarification = RunnableLambda(clarification_node)
+
+def clarification_handler(state: State):
+    """Handle the clarification response from the user."""
+    human_message = interrupt("clarification")
+    print("Interrupt Resume")
+    state = replace(state, messages=state.messages + [human_message])
+    return state
 
 # Define the node to handle the general response (Jack Henderson's reply)
 jack_reply_generator = RunnableLambda(jack_reply_generator_node)
@@ -109,6 +118,7 @@ workflow = StateGraph(State, config_schema=Config)
 workflow.add_node("memory_loader", memory_loader)
 workflow.add_node("intent_classifier", intent_classifier)
 workflow.add_node("clarification_node", clarification)
+workflow.add_node("clarification_handler", clarification_handler)
 workflow.add_node("jack_reply_generator", jack_reply_generator)
 workflow.add_node("faq_matcher", faq_matcher)
 workflow.add_node("lead_capture_node", lead_capture)
@@ -138,6 +148,8 @@ workflow.add_conditional_edges(
     }
 )  
 workflow.add_edge("lead_capture_node", "summary_node")  
+workflow.add_edge("clarification_node", "clarification_handler")  
+workflow.add_edge("clarification_handler", "intent_classifier")  
 workflow.add_edge("jack_reply_generator", "motivator_node")  
 workflow.add_edge("motivator_node", "summary_node")  
 workflow.add_edge("summary_node", "user_save_node")  

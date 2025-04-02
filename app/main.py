@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request ,Form
 from dotenv import load_dotenv
 from pydantic import BaseModel
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 import uuid
@@ -34,7 +34,11 @@ class MessengerInput(BaseModel):
 async def chat_ui(request: Request):
     if "thread_id" not in request.session:
         request.session["thread_id"] = f"web_{str(uuid.uuid4())[:8]}"
-    return templates.TemplateResponse("chat.html", {"request": request, "chat": []})
+    chat_history = request.session.get("chat_history", [])
+    return templates.TemplateResponse("chat.html", {
+        "request": request,
+        "chat": chat_history
+    })
 
 # =========================================
 # UI Route – POST (Handle chat input)
@@ -43,17 +47,26 @@ async def chat_ui(request: Request):
 async def chat_post(request: Request, message: str = Form(...)):
     thread_id = request.session.get("thread_id")
     result = generate_answer(message, thread_id=thread_id, platform="web")
-
+    
+    # Initialize chat history in session if not exist
+    if "chat_history" not in request.session:
+        request.session["chat_history"] = []
+    request.session["chat_history"].append({"from": "user", "msg": message})
+    request.session["chat_history"].append({"from": "jack", "msg": result["answer"]})
 
 
     return templates.TemplateResponse("chat.html", {
         "request": request,
-        "chat": [
-            {"from": "user", "msg": message},
-            {"from": "jack", "msg": result["answer"]}
-        ]
+        "chat": request.session["chat_history"]
     })
-
+    
+# =========================================
+# Reset session – clear all session data
+# =========================================
+@app.post("/reset")
+async def reset_session(request: Request):
+    request.session.clear()
+    return RedirectResponse("/", status_code=302)
 
 # =========================================
 # API Endpoint – for programmatic testing

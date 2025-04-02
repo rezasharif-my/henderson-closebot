@@ -1,18 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Chat with Jack Henderson</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body {
+    html, body {
+      height: 100%;
+      margin: 0;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: #f2f4f8;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
     }
 
     header {
@@ -20,25 +17,25 @@
       color: white;
       padding: 20px;
       text-align: center;
-      font-weight: bold;
     }
 
-    header small {
-      display: block;
-      font-weight: normal;
-      font-size: 0.9rem;
-      margin-top: 5px;
-      color: #ccc;
+    .chat-wrapper {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
     }
 
     .chat-container {
       flex: 1;
       max-width: 700px;
-      margin: 2rem auto;
-      background: white;
-      border-radius: 10px;
-      box-shadow: 0 0 12px rgba(0,0,0,0.1);
+      margin: auto;
+      width: 100%;
       padding: 20px;
+      background: white;
+      overflow-y: auto;
+      scroll-behavior: smooth;
+      border-top: 1px solid #eee;
+      border-bottom: 1px solid #eee;
     }
 
     .message {
@@ -47,29 +44,37 @@
       border-radius: 20px;
       max-width: 75%;
       line-height: 1.4;
+      word-wrap: break-word;
     }
 
     .user {
       background-color: #e0f7fa;
       color: #00796b;
-      text-align: right;
       margin-left: auto;
+      text-align: right;
     }
 
     .jack {
       background-color: #0a2342;
       color: #fff;
-      text-align: left;
       margin-right: auto;
+      text-align: left;
     }
 
-    form {
+    form.chat-form {
       display: flex;
-      margin-top: 20px;
+      padding: 10px;
+      background: #fff;
+      position: sticky;
+      bottom: 0;
+      width: 100%;
+      max-width: 700px;
+      margin: auto;
       gap: 10px;
+      border-top: 1px solid #ddd;
     }
 
-    input[type="text"] {
+    form.chat-form input[type="text"] {
       flex: 1;
       padding: 10px 15px;
       border-radius: 20px;
@@ -77,7 +82,7 @@
       font-size: 1rem;
     }
 
-    button {
+    form.chat-form button {
       background: #0a2342;
       color: white;
       padding: 10px 20px;
@@ -87,15 +92,11 @@
       cursor: pointer;
     }
 
-    button:hover {
-      background: #0e2e5b;
-    }
-
     footer {
       background-color: #0a2342;
       color: white;
       text-align: center;
-      padding: 15px 0;
+      padding: 10px 0;
       font-size: 0.9rem;
     }
 
@@ -105,28 +106,43 @@
   </style>
 </head>
 <body>
+  <div class="chat-wrapper">
+    <header>
+      Chat with Jack Henderson
+      <small style="display: block; font-size: 0.9rem; color: #ccc;">Direct property advice, Jack style.</small>
+      <form method="post" action="/reset" style="text-align:center; margin-top:10px; float: right; ">
+        <button type="submit" style="background:#f44336; color:white; border:none; padding:8px 16px; border-radius:10px; cursor: pointer !important;">
+          🔄 Reset Chat
+        </button>
+        </form>
+    </header>
 
-<header>
-  Chat with Jack Henderson
-  <small>Instant property advice in Jack's voice – no excuses, just action.</small>
-</header>
-
-<div class="chat-container">
-  {% for c in chat %}
-    <div class="message {{ c.from }}">
-      {{ c.msg }}
+    <div class="chat-container" id="chatbox">
+      {% for c in chat %}
+        <div class="message {{ c.from }}">
+          {{ c.msg }}
+        </div>
+      {% endfor %}
     </div>
-  {% endfor %}
 
-  <form method="post">
-    <input type="text" name="message" placeholder="Type your message..." required />
-    <button type="submit">Send</button>
-  </form>
-</div>
+    <form method="post" class="chat-form">
+      <input type="text" name="message" placeholder="Type your message..." required />
+      <button type="submit">Send</button>
+    </form>
 
-<footer>
-  Developed by <span>Reza Sharif</span>
-</footer>
+    <footer>
+      Developed with ❤️ by <span>Reza Sharif</span>
+    </footer>
+  </div>
 
+
+
+  <script>
+    // Auto-scroll to bottom on page load
+    window.onload = function () {
+      const chatbox = document.getElementById("chatbox");
+      chatbox.scrollTop = chatbox.scrollHeight;
+    }
+  </script>
 </body>
 </html>

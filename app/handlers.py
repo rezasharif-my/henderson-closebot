@@ -1,10 +1,11 @@
 from langchain_openai import ChatOpenAI
-from utils import get_environment_ready
+from utils import get_environment_ready, reset_state_fields
 from db import get_recent_chat, save_chat_summary, save_user, get_user_by_thread_id, get_latest_summary
 from pydantic import BaseModel, Field
 from typing import Literal , Optional
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from langchain_core.messages import RemoveMessage
+
 import re
 
 from dataclasses import replace
@@ -34,8 +35,9 @@ You are an intent classification AI. Given the user's message, classify it into 
 - greeting: saying hi, hello, etc.
 - invest_interest: user shows interest in investing or buying property
 - faq: user asks about company services, offerings, pricing
-- lead_capture: user shares contact info (email or phone)
-- smalltalk: jokes, casual convo, not business-focused
+- lead_capture: user shares contact info (email or phone or name)
+- smalltalk: jokes, casual convo, not business-focused or general questions
+- *** if message starts with CLARIFIED return smalltalk ***
 - unclear: you can't tell the intent clearly
 
 Respond with just one of the above keywords.
@@ -54,6 +56,7 @@ def intent_classifier_node(state):
     try:
         structured_llm = llm.with_structured_output(DetectedIntent)
         result = structured_llm.invoke([system_msg])
+        print("Intent ======>",result.intent)
         return replace(state, intent=result.intent)
     except Exception as e:
         print(f"[Intent Classifier Error] {e}")
@@ -62,14 +65,21 @@ def intent_classifier_node(state):
 # =============================================================================
 # Define the memory loader node
 # =============================================================================
-def memory_loader_node(state):
-    """Loads user's profile and last summary into the graph state."""
-    thread_id = state.thread_id or None
+def memory_loader_node(state, config):
+    """Loads user's profile and last summary into the graph state from config thread_id."""
+    
+    state = reset_state_fields(state, ["answer", "intent", "clarification_question","status"])
+    thread_id = config.get("configurable", {}).get("thread_id")
     if not thread_id:
+        print("[MemoryLoader] No thread_id found in config.")
         return state
 
     user_info = get_user_by_thread_id(thread_id)
     summary = get_latest_summary(thread_id)
+
+    # Optional debug
+    print(f"[MemoryLoader] Loaded user: {user_info}, summary: {summary}")
+
     return replace(state, summary=summary, user_profile=user_info)
 
 # =============================================================================
@@ -86,6 +96,7 @@ The user's message is unclear or open-ended. Your job is to ask a **single clari
 User message: "{message}"
 
 Respond with ONLY the follow-up question.
+Respond as You are Jack Henderson, the founder of Henderson Advocacy. Your tone is confident, direct, and motivational.
 '''
 
 def clarification_node(state: dict) -> dict:
@@ -135,11 +146,15 @@ def jack_reply_generator_node(state):
     messages = state.messages
     user_summary = state.summary or ""
     user_intent = state.intent or None
+    user_info = get_user_by_thread_id(state.thread_id)
+    
 
     # Compose system context with optional summary
     system_prompt = JACK_SYSTEM_PROMPT
     if user_summary:
         system_prompt += f"\n\nContext from our last chat:\n{user_summary}"
+    if user_info:
+        system_prompt += f"\n\nUser info: {user_info}"
 
     try:
         structured_llm = llm_with_temperature.with_structured_output(JackResponse)
@@ -190,6 +205,7 @@ def faq_matcher_node(state):
 class LeadInfo(BaseModel):
     email: Optional[str] = Field(description="User's email if shared")
     phone: Optional[str] = Field(description="User's phone number if shared")
+    name: Optional[str] = Field(description="User's name if shared")
 # --- 2. Simple validators ---
 def is_valid_email(email):
     return bool(re.match(r"[^@\s]+@[^@\s]+\.[a-zA-Z0-9]+$", email))
@@ -217,8 +233,13 @@ def lead_capture_node(state):
         result = structured_llm.invoke([system_msg])
         email = result.email if result.email and is_valid_email(result.email) else None
         phone = result.phone if result.phone and is_valid_phone(result.phone) else None
+        name = result.name if result.name else None
 
         # Optionally update state or ask again
+        if name:
+            from app.db import save_user 
+            save_user(thread_id, name=name)
+            
         if email or phone:
             from app.db import save_user 
             save_user(thread_id, email=email, phone=phone)
@@ -305,9 +326,9 @@ def summary_node(state):
     messages = state.messages
 
     # Don't summarize unless there's context to work with
-    if len(messages) <= 2:
+    if len(messages) <= 3:
         return state
-
+    print("CHECK SUMMERIZE ======>",thread_id)
     # Pull latest summary from DB
     existing_summary = get_latest_summary(thread_id) or ""
 
