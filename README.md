@@ -24,7 +24,8 @@ Built for **Henderson Advocacy**, this chatbot is your always-on, tone-consisten
 ! 
 ![Graph Demo](docs/graph.png)
 ![Chat UI](docs/chat-ui.png)
-![Interface Preview](docs/ui-preview.png)
+![Chat UI](docs/smith.png)
+
 
 ---
 
