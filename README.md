@@ -93,7 +93,15 @@ uvicorn app.main:app --reload
 
 Open your browser at http://localhost:8000 to test the chatbot UI.
 
-🎯 API Endpoint
+
+Optional Web Testing Flow:
+	•	Open browser and use the chat UI to simulate interaction
+	•	Session is persisted via cookies (reset with the red 🔄 Reset Chat button)
+```
+---
+
+## 🎯 API Endpoint
+```bash
 
 POST /message
 Content-Type: application/json
@@ -104,15 +112,25 @@ Content-Type: application/json
   },
   "platform": "messenger",
   "message": {
-    "text": "Hey Jack, I’m interested in investing!"
+    "text": "Hey Jack, I’m interested in investing!",
   }
 }
+```
+---
 
+## 🧪 Run with LangGraph CLI (Langsmith)
 
-Optional Web Testing Flow:
-	•	Open browser and use the chat UI to simulate interaction
-	•	Session is persisted via cookies (reset with the red 🔄 Reset Chat button)
+```bash
+1- Install Langgraph Cli 
 
+pip install langgraph-cli
+
+2- In root folder run this command :
+
+langgraph dev
+
+```
+---
 
 ## 📂 Database Schema
 
@@ -121,6 +139,7 @@ SQLite tables include:
 	•	chat_summaries – One-paragraph summaries per thread
 	•	chat_history – Archived messages and timestamps
 
+---
 
 ## 📄 License
 

@@ -56,7 +56,6 @@ def intent_classifier_node(state):
     try:
         structured_llm = llm.with_structured_output(DetectedIntent)
         result = structured_llm.invoke([system_msg])
-        print("Intent ======>",result.intent)
         return replace(state, intent=result.intent)
     except Exception as e:
         print(f"[Intent Classifier Error] {e}")
@@ -76,9 +75,6 @@ def memory_loader_node(state, config):
 
     user_info = get_user_by_thread_id(thread_id)
     summary = get_latest_summary(thread_id)
-
-    # Optional debug
-    print(f"[MemoryLoader] Loaded user: {user_info}, summary: {summary}")
 
     return replace(state, summary=summary, user_profile=user_info)
 
@@ -328,7 +324,6 @@ def summary_node(state):
     # Don't summarize unless there's context to work with
     if len(messages) <= 3:
         return state
-    print("CHECK SUMMERIZE ======>",thread_id)
     # Pull latest summary from DB
     existing_summary = get_latest_summary(thread_id) or ""
 

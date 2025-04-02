@@ -71,26 +71,25 @@ async def reset_session(request: Request):
 # =========================================
 # API Endpoint – for programmatic testing
 # =========================================
-# @app.post("/chat")
-# async def handle_chat_api(payload: MessengerInput):
-#     thread_id = f"{payload.platform}_{payload.sender['id']}"
+@app.post("/chat")
+async def handle_chat_api(payload: MessengerInput, request: Request):
+    # 1. Create unique thread_id from platform and sender ID
+    thread_id = f"{payload.platform}_{payload.sender['id']}"
 
-#     initial_state = State(
-#         messages=[{"type": "human", "content": payload.message["text"]}],
-#         thread_id=thread_id,
-#         user_profile={"platform": payload.platform}
-#     )
+    # 2. Call your shared generator function
+    result = generate_answer(
+        message=payload.message["text"],
+        thread_id=thread_id,
+        platform=payload.platform
+    )
 
-#     try:
-#         result = graph.invoke(initial_state)
-#         return {
-#             "reply": result.answer,
-#             "status": result.status,
-#             "summary": result.summary,
-#             "user_profile": result.user_profile
-#         }
-#     except Exception as e:
-#         return {"error": str(e)}
+    return {
+        "reply": result.get("answer"),
+        "status": result.get("status"),
+        "intent": result.get("intent"),
+        "clarification_question": result.get("clarification_question"),
+        "thread_id": result.get("thread_id")
+    }
 
 if __name__ == "__main__":
     import uvicorn

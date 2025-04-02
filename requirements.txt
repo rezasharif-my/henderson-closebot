@@ -9,6 +9,7 @@ certifi==2025.1.31
 cffi==1.17.1
 charset-normalizer==3.4.1
 click==8.1.8
+-e git+https://github.com/rezasharif-my/henderson-closebot.git@518a80332520c70911608c79110fd3edc1d4c164#egg=closebot
 cloudpickle==3.1.1
 cryptography==43.0.3
 dataclasses-json==0.6.7
@@ -20,6 +21,8 @@ httpcore==1.0.7
 httpx==0.28.1
 httpx-sse==0.4.0
 idna==3.10
+itsdangerous==2.2.0
+Jinja2==3.1.6
 jiter==0.9.0
 jsonpatch==1.33
 jsonpointer==3.0.0
@@ -38,6 +41,7 @@ langgraph-prebuilt==0.1.7
 langgraph-sdk==0.1.60
 langsmith==0.3.21
 loguru==0.7.3
+MarkupSafe==3.0.2
 marshmallow==3.26.1
 multidict==6.3.0
 mypy-extensions==1.0.0
@@ -53,6 +57,7 @@ pydantic-settings==2.8.1
 pydantic_core==2.33.0
 PyJWT==2.10.1
 python-dotenv==1.1.0
+python-multipart==0.0.20
 PyYAML==6.0.2
 regex==2024.11.6
 requests==2.32.3

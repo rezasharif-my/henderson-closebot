@@ -66,13 +66,6 @@ memory_loader = RunnableLambda(memory_loader_node)
 # Define the node to handle the clarification question
 clarification = RunnableLambda(clarification_node)
 
-def clarification_handler(state: State):
-    """Handle the clarification response from the user."""
-    human_message = interrupt("clarification")
-    print("Interrupt Resume")
-    state = replace(state, messages=state.messages + [human_message])
-    return state
-
 # Define the node to handle the general response (Jack Henderson's reply)
 jack_reply_generator = RunnableLambda(jack_reply_generator_node)
 
@@ -90,6 +83,12 @@ summary = RunnableLambda(summary_node)
 
 # Define the node to save the user data
 user_save = RunnableLambda(user_save_node)
+
+def clarification_handler(state: State):
+    """Handle the clarification response from the user."""
+    human_message = interrupt("clarification")
+    state = replace(state, messages=state.messages + [human_message])
+    return state
 
 # Define the function to route the user query based on the detected intent
 def route_intent(state: State) -> str:
