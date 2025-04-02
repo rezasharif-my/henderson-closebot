@@ -20,15 +20,16 @@ Built for **Henderson Advocacy**, this chatbot is your always-on, tone-consisten
 
 ## 🖼️ Preview
 
-> Demo screenshots or video (replace with your own)
-
-![Chat Demo](docs/chat-demo.gif)
+> Demo screenshots 
+! 
+![Graph Demo](docs/graph.png)
+![Chat UI](docs/chat-ui.png)
 ![Interface Preview](docs/ui-preview.png)
 
 ---
 
 ## 🔧 Project Structure
-
+```bash
 closebot/
 ├── app/
 │   ├── main.py               # FastAPI app & routing
@@ -45,7 +46,7 @@ closebot/
 ├── README.md
 └── docs/                     # Images, videos for documentation
 
-
+```
 ---
 
 ## 🚀 Features
@@ -67,7 +68,7 @@ closebot/
 | **`memory_loader_node`**     | Loads user info and summary from DB; resets conflicting fields                  |
 | **`intent_classifier_node`** | Classifies user message (faq, invest, smalltalk, etc.)                          |
 | **`faq_matcher_node`**       | Matches common questions from a dictionary                                      |
-| **`clarification_node`**     | If unclear, generates a follow-up question and pauses graph                     |
+| **`clarification_node`**     | If unclear, generates a follow-up question and pauses graph (Human-in-the-loop) |
 | **`jack_reply_generator_node`** | Jack-styled response, using previous summary for tone & personalization      |
 | **`lead_capture_node`**      | Extracts email/phone and validates before saving                                |
 | **`motivator_node`**         | Adds motivating quote if user's intent seems hesitant                           |
@@ -88,7 +89,11 @@ python -m venv venv && source venv/bin/activate
 # 3. Install dependencies
 pip install -r requirements.txt
 
-# 4. Start the app
+# 4. Add environment variables
+Rename .env.example to .env and add your OpenAI API key
+# (if you want to use Langsmith to trace your LLM actions and Token usage add your LangSmith API Key as well)
+
+# 5. Start the app
 uvicorn app.main:app --reload
 
 Open your browser at http://localhost:8000 to test the chatbot UI.
@@ -121,11 +126,11 @@ Content-Type: application/json
 ## 🧪 Run with LangGraph CLI (Langsmith)
 
 ```bash
-1- Install Langgraph Cli 
+# 1- Install Langgraph Cli 
 
 pip install langgraph-cli
 
-2- In root folder run this command :
+# 2- In root folder run this command :
 
 langgraph dev
 

@@ -9,7 +9,6 @@ certifi==2025.1.31
 cffi==1.17.1
 charset-normalizer==3.4.1
 click==8.1.8
--e git+https://github.com/rezasharif-my/henderson-closebot.git@518a80332520c70911608c79110fd3edc1d4c164#egg=closebot
 cloudpickle==3.1.1
 cryptography==43.0.3
 dataclasses-json==0.6.7
