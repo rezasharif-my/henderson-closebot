@@ -114,18 +114,14 @@ Optional Web Testing Flow:
 	•	Session is persisted via cookies (reset with the red 🔄 Reset Chat button)
 
 
-📂 Database Schema
+## 📂 Database Schema
 
 SQLite tables include:
 	•	users – Stores thread_id, name, email, phone, platform
 	•	chat_summaries – One-paragraph summaries per thread
 	•	chat_history – Archived messages and timestamps
 
-📽️ Optional Video Walkthrough
 
-	(Link to Loom/YouTube demo if available)
-“Here’s a 2-min walkthrough of CloseBot in action.”
-
-📄 License
+## 📄 License
 
 MIT – Free to use, modify, and extend.
